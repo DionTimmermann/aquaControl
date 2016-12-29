@@ -5,6 +5,7 @@ import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
+import importlib
 
 import logging
 logging.basicConfig(filename='aquaControl.log', format='%(asctime)s %(levelname)s:%(message)s', level=logging.WARNING)
@@ -32,26 +33,40 @@ i2c = smbus.SMBus(1)
 app = Flask(__name__)
 
 
+config = {
+    'modules': [
+        'ph',
+        'pumps'
+    ],
+    'logging': {
+        'aquarium': 'Wohnzimmer',
+        'host': 'localhost',
+        'port': 8086,
+        'db': 'aquarien'
+    }
+}
+
 modules = {
-    'light_single': {
-        'i2cAddress': 0x1a,
-        'maxBrightness': 2**14 - 1,
-        'maxLumen': 1980
-    },
+#    'light_single': {
+#        'i2cAddress': 0x1a,
+#        'maxBrightness': 2**14 - 1,
+#        'maxLumen': 1980
+#    },
     'ph': {
         'i2cAddress': 0x1e,
     }
 }
 
 
-influxDB = InfluxDBClient(database='aquarien')
+influxDB = InfluxDBClient(host = config['logging']['host'], port=config['logging']['port'], database=config['logging']['db'])
 
+# TODO: Make aquarium Conf Value
 def logVal(measurement, value, tags = {}):
     try:
         json = [{
             "measurement": measurement,
             "tags": {
-                "aquarium": "Badezimmer"
+                "aquarium": config['logging']['aquarium']
             },
             "fields": {
                 "value": value
@@ -59,7 +74,7 @@ def logVal(measurement, value, tags = {}):
         }]
 
         json[0]['tags'].update(tags)
-        
+
         influxDB.write_points(json)
     except Exception, e:
         logging.warning("Fehler in Messschleife: %s", str(e))
@@ -114,7 +129,8 @@ def index():
 def staticIndex():
     return send_from_directory('static', 'index.html')
 
-
-import aquaControl.light_single
-import aquaControl.pumps
-import aquaControl.ph
+for module in config['modules']:
+    importlib.import_module("aquaControl." + module)
+#import aquaControl.light_single
+#import aquaControl.pumps
+#import aquaControl.ph

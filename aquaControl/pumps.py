@@ -13,33 +13,55 @@ conf = {
     'cal': [
         {
             'id': 1,
-            'gpioPort': 14,
-            'name': 'NPK',
-            'continuous': 100,
-            'impulse': 104,
-            'remaining': 500
+            'gpioPort': 17,
+            'name': 'Fe',
+            'continuous': 110.0,
+            'impulse': 110.0,
+            'remaining': 500.0
         },
         {
             'id': 2,
-            'gpioPort': 15,
-            'name': 'Fe',
-            'continuous': 100,
-            'impulse': 104,
-            'remaining': 500
+            'gpioPort': 22,
+            'name': 'NPK',
+            'continuous': 87.0,
+            'impulse': 87.0,
+            'remaining': 500.0
+        },
+        {
+            'id': 3,
+            'gpioPort': 10,
+            'name': 'N',
+            'continuous': 100.0,
+            'impulse': 100.0,
+            'remaining': 500.0
+        },
+        {
+            'id': 4,
+            'gpioPort': 27,
+            'name': 'Wasser',
+            'continuous': 107.0,
+            'impulse': 107.0,
+            'remaining': 500.0
         }
     ],
     'nodes': [
         {
             'id': 0,
-            'pump': 1,
-            'time': '08:00',
-            'amount': 2
+            'pump': 2,
+            'time': '06:00',
+            'amount': 6.0
         },
         {
             'id': 1,
-            'pump': 2,
-            'time': '08:00',
-            'amount': 2
+            'pump': 3,
+            'time': '06:00',
+            'amount': 6.0
+        },
+        {
+            'id': 2,
+            'pump': 4,
+            'time': '06:01',
+            'amount': 50.0
         }
     ],
     'NImpulse' : 100,
@@ -73,6 +95,8 @@ def runPumpThreadRunner(pump, amount):
     global pumpLocks, statesLock
 
     seconds = calculatePumpTime(amount, pump)
+
+    print "running pump ", pump['id'], " for ", seconds, "s"
 
     #wait for lock, this ensures the pump is not already running
     with pumpLocks[pump['id']]:
@@ -328,8 +352,11 @@ setupPumps()
 
 
 def calculatePumpTime(amount, pump):
+    print pump
     a = (pump['continuous'] - (pump['impulse'] / conf['NImpulse'])) / \
         (conf['timeContinuous'] - conf['timeImpulse'])
+
+    print a
 
     return (amount - pump['continuous'] + a*conf['timeContinuous']) / a
 

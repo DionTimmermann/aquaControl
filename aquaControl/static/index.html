@@ -746,7 +746,7 @@
           }
 
           $.get('/api/ph/current', function(data){
-            $('#currentPh').text(data.voltageLast.toFixed(2));
+            $('#currentPh').text(data.mV.toFixed(2));
           }).done(function() {
             setTimeout(updatePhCalValues, 1000);
           });

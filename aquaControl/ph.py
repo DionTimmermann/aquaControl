@@ -15,15 +15,15 @@ sensor = W1ThermSensor()
 conf = {
     'cal': {
         'kH': 4.0,
-        'mV1': 1064.0,
+        'mV1': 1040.0,
         'pH1': 4.00,
-        'mV2': 889.0,
+        'mV2': 869.0,
         'pH2': 7.03
     },
     'state': 'running',
     'mean': 6.75,
     'pm': 0.1,
-    'gpioPort': 27,
+    'gpioPort': 9,
 }
 
 ################################
@@ -93,19 +93,6 @@ def getADCint():
 def getpHVoltage(adcVal):
     return adcVal / (2**16-1) * 1668 # in mV
 
-@app.route('/api/ph/current', methods=['GET'])
-def getApiPhCurrent():
-    mV = getpHVoltage(getADCab())
-    pH = pHfrommV(mV)
-    co2 = CO2frompH(pH)
-
-    return jsonify(
-        {
-            'voltageMean': mV,
-            'voltageLast': getpHVoltage(getADCint()),
-            'ph': pH,
-            'co2': co2
-        })
 
 
 
@@ -120,15 +107,17 @@ sensorsState = {
 GPIO.setup(conf['gpioPort'], GPIO.OUT)
 
 phRawValues = []
+phLastValue = None
 def measurePhThreadRunner():
-    global phRawValues, sensorsLock
+    global phRawValues, sensorsLock, phLastValue
     loggingIntervallSeconds = 1
 
     while True:
         nextWakeup = time.time() + 1
 
         with sensorsLock:
-            phRawValues.append(getADCint())
+            phLastValue = getADCint()
+            phRawValues.append(phLastValue)
 
         dt = nextWakeup - time.time()
         time.sleep(dt if dt > 0 else 0)
@@ -137,6 +126,21 @@ def measurePhThreadRunner():
 measurePhThread = threading.Thread(target=measurePhThreadRunner)
 measurePhThread.daemon = True
 measurePhThread.start()
+
+
+@app.route('/api/ph/current', methods=['GET'])
+def getApiPhCurrent():
+    with sensorsLock:
+        mV = getpHVoltage(phLastValue)
+        pH = pHfrommV(mV)
+        co2 = CO2frompH(pH)
+
+    return jsonify(
+        {
+            'mV': mV,
+            'ph': pH,
+            'co2': co2
+        })
 
 
 def phMedian(lst):
@@ -161,9 +165,10 @@ def sensorsThreadRunner():
         with sensorsLock:
             nextWakeup = time.time() + loggingIntervallSeconds
 
+            #print phRawValues
+
             sensorsState['pH'] = pHfrommV(getpHVoltage(phMedian(phRawValues)))
             phRawValues = []
-            phRawValues.append(getADCint())
 
             sensorsState['CO2'] = CO2frompH(sensorsState['pH'])
 
